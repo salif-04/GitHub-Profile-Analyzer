@@ -5,13 +5,17 @@ class gitHubProfileAnalyzer:
     ''' The GitHub Profile Analyzer '''
 
     URL = "https://api.github.com/users/"   # GitHub API
-
+    repoURL = "https://api.github.com/repos/"
+    
     def __init__(self, user_name):
+        self.user_name = user_name
         self.user_url = self.URL + user_name
+        self.languages = {}
+        self.commits = 0
     
     def get_status(self):
         r = requests.get(self.user_url)
-        return r.status_code
+        return r.status_code, r.reason
 
     def get_info(self, url):
         r = requests.get(url)
@@ -22,55 +26,80 @@ class gitHubProfileAnalyzer:
     def user_info(self):
         info = self.get_info(self.user_url)
         print("User Info:")
-        print("Username\t: " + info['login'])
+        print("Username\t: " + str(info['login']))
         print("ID\t\t: " + str(info['id']))
-        print("Name\t\t: " + info['name'])
-        print("GitHub URL\t: "+info['html_url'])
+        print(("Name\t\t: " + str(info['name'])))
+        print("GitHub URL\t: " + str(info['html_url']))
         print("Comapny\t\t: " + str(info['company']))
-        # print(info)
+        print("Public Repos\t: "+ str(info['public_repos']))
+        print("Followers\t: "+ str(info['followers']))
+        print("Followings\t: "+ str(info['following']))
+        print(str(info['name']) + " is contributing since " + info['created_at'])
 
     def user_followers(self):
         followers_url = self.user_url + "/followers"
         info = self.get_info(followers_url)
-        # print(info)
         print("\n\nFollowers:\nName\t\tGitHub URL")
-        c = 1
         for follower in info:
-            print(str(c) + "." + follower['login'] + "\t" + follower['html_url'])
-            c += 1
+            print(follower['login'] + "\t" + follower['html_url'])
 
     def user_folllowing(self):
         following_url = self.user_url + "/following"
         info = self.get_info(following_url)
         print("\n\nFolLowings:\nName\t\tGitHub URL")
-        c = 1
         for following in info:
-            print(str(c) + "." + following['login'] + "\t" + following['html_url'])
-            c += 1
+            print(following['login'] + "\t" + following['html_url'])
 
     def user_starred(self):
         starred_url = self.user_url + "/starred"
         info = self.get_info(starred_url)
         print("\n\nStarred Repositories:")
-        c = 1
         for starred in info:
-            print(str(c) + "." + starred['name'])
+            print(starred['name'])
             print("\t" + "Owner\t: " + starred['owner']['login'])
             print("\t " + "URL\t:" + starred['html_url'] + "\n")
-            c += 1
+    
+    def user_repos(self):
+        repos_url = self.user_url + "/repos"
+        info = self.get_info(repos_url)
+        print("\n\nRepositories:")
+        for repo in info:
+            print(repo['name'])
+            print("\tURL : " + repo['html_url'])
+            lang = repo['language']
+            print("\tLanguage : " + str(lang))
+            if lang is not None:
+                if lang in self.languages.keys():
+                    self.languages[lang] += 1
+                else:
+                    self.languages[lang] = 1
+            pr = self.get_info(self.repoURL + self.user_name + "/" + repo['name'] + "/pulls")
+            print("\tPull Requests : " + str(len(pr)))
+            issues = self.get_info(self.repoURL + self.user_name + "/" + repo['name'] + "/issues")
+            print("\tIssues : " + str(len(issues)))
+            print("\tStargazers : " + str(repo['stargazers_count']))
+            print("\tForks : " + str(repo['forks']) + "\n")
+            comm = self.get_info(self.repoURL + self.user_name + "/" + repo['name'] + "/commits")
+            self.commits += len(comm)
+    
+    def user_languages(self):
+        print("Languages Used:")
+        for lang in self.languages:
+            print(lang + " : " + str(self.languages[lang]))
+        print("\nTotal Commits: " + str(self.commits))
 
 def analyze():
     username = input("Enter the GitHub username > ")
     myObj = gitHubProfileAnalyzer(username)
-    status = myObj.get_status()
+    status, req_reason = myObj.get_status()
     if status == requests.codes.ok:
         myObj.user_info()
         myObj.user_followers()
         myObj.user_folllowing()
         myObj.user_starred()
-    elif status == requests.codes.not_found:
-        print("Error 404: Page Not Found")
+        myObj.user_repos()
+        myObj.user_languages()
     else:
-        print("Error " + str(status))
+        print("Error " + str(status) + ": " + str(req_reason))
 
 analyze()
